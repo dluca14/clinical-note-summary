@@ -24,8 +24,9 @@ embedding_model = OpenAIEmbeddings()
 # Post-processing
 def format_docs(docs):
     return "\n".join(
-        f"<doc{i + 1}>:\nSource:{doc.metadata['source']}\nContent:{doc.page_content}\n</doc{i + 1}>\n" for i, doc in
-        enumerate(docs))[:30000]
+        f"<doc{i + 1}>:\nSource:{doc.metadata['source']}\nContent:{doc.page_content}\n</doc{i + 1}>\n"
+        for i, doc in enumerate(docs)
+    )[:30000]
 
 
 def get_context(
