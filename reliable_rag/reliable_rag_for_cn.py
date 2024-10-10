@@ -2,6 +2,7 @@ import os
 from typing import List
 
 from dotenv import load_dotenv
+from langchain_groq import ChatGroq
 from langchain.output_parsers import PydanticOutputParser
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
@@ -15,6 +16,7 @@ from pydantic import BaseModel, Field
 # Load environment variables from '.env' file
 load_dotenv()
 
+# llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0)
 llm = ChatOpenAI(model="gpt-4o")
 embedding_model = OpenAIEmbeddings()
 
@@ -23,18 +25,18 @@ embedding_model = OpenAIEmbeddings()
 def format_docs(docs):
     return "\n".join(
         f"<doc{i + 1}>:\nSource:{doc.metadata['source']}\nContent:{doc.page_content}\n</doc{i + 1}>\n" for i, doc in
-        enumerate(docs))
+        enumerate(docs))[:30000]
 
 
 def get_context(
+        data_path: dict,
         chunk_size: int = 5000,
         chunk_overlap: int = 500,
         search_type: str = 'similarity',
         k_chunks: int = 25,
         question: str = '',
 ):
-    DATA_PATH = "data/test/"
-    loader = DirectoryLoader(DATA_PATH, glob="*.txt", show_progress=True, use_multithreading=False)
+    loader = DirectoryLoader(data_path['path'], glob=data_path['glob'], show_progress=True, use_multithreading=False)
     documents = loader.load()
     # Split
     text_splitter = RecursiveCharacterTextSplitter(
@@ -93,8 +95,7 @@ def get_retrieval_grader_chain():
         )
 
     # LLM with function call
-    from langchain_groq import ChatGroq
-    llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0)
+    # llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0)
     structured_llm_grader = llm.with_structured_output(GradeDocuments)
 
     # Prompt
@@ -146,8 +147,7 @@ def get_hallucination_grader_chain():
         )
 
     # LLM with function call
-    from langchain_groq import ChatGroq
-    llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0)
+    # llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0)
     structured_llm_grader = llm.with_structured_output(GradeHallucinations)
 
     # Prompt
@@ -192,8 +192,7 @@ def get_doc_highlighter_chain():
         )
 
     # LLM
-    from langchain_groq import ChatGroq
-    llm = ChatGroq(model="mixtral-8x7b-32768", temperature=0)
+    # llm = ChatGroq(model="mixtral-8x7b-32768", temperature=0)
     # parser
     parser = PydanticOutputParser(pydantic_object=HighlightDocuments)
 
@@ -232,35 +231,12 @@ def get_doc_highlighter_chain():
 
 
 if __name__ == '__main__':
-
-    question = '''
-    "I need you to create a thorough Clinical Validation and Diagnosis Analysis, analyze carefully the attached clinician 
-    note and then the Given the list of medical conditions and the procedures reported in the claim list.
-
-    {CLAIM_LIST}
-
-    I want you to be very detailed and use the text to ensure that there is the necessary clinical evidence to 
-    support the presence of the medical conditions and procedures. 
-    I need answers in the format below, quoting from the provided clinician notes to support your decisions on 
-    whether there is evidence for a medical condition or not. Search in the context for all the keywords below:
-    • Patient Name: 
-    • Age: 
-    • Gender: 
-    • For every ICD code in the CLAIM_LIST provide the following information: 
-        •	Past Medical History
-        •	Presenting problems/complaints
-        •	Vitals, if appropriate to the project
-        •	Pertinent labs, testing and results
-        •	Pertinent treatment
-        •	Documentation to support the decision based on clinical validation reference
-        •	Rationale of: Based on this information, the patient does not meet diagnostic criteria for
-    • Medications:  
-    • Section Reference: 
-    • Quoted Evidence: 
-    • Rationale: 
-    • Conclusion:
-    '''
-    docs = get_context(chunk_size=5000,
+    # -------------------------------------------- Retrieve documents --------------------------------------------------
+    from data.prompt import question
+    DATA_PATH = {'path': "data/test/", 'glob': '*.txt'}
+    # DATA_PATH = {'path': "data/test2/", 'glob': '*.pdf'}
+    docs = get_context(data_path=DATA_PATH,
+                       chunk_size=5000,
                        chunk_overlap=500,
                        search_type='similarity',
                        k_chunks=25,
